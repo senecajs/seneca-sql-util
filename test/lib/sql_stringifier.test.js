@@ -2,7 +2,7 @@ const SqlStringifer = require('../../lib/sql_stringifier')
 
 describe('SqlStringifer', () => {
   describe('stringifyInsert', () => {
-    describe("insert into products (\"id\") values ('aaaa')", () => {
+    describe("insert into products (id) values ('aaaa')", () => {
       const insert_ast = {
         whatami$: 'insert_t',
         into$: { whatami$: 'table_t', name$: 'products' },
@@ -17,7 +17,7 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifyInsert(insert_ast)
-        expect(sql).toEqual("insert into products (\"id\") values ('aaaa')")
+        expect(sql).toEqual("insert into products (id) values ('aaaa')")
       })
     })
 
@@ -39,7 +39,7 @@ describe('SqlStringifer', () => {
       })
     })
 
-    describe("insert into products (\"est_price\", \"price\", \"version\") values (3.95, '3.95', 0)", () => {
+    describe("insert into products (est_price, price, version) values (3.95, '3.95', 0)", () => {
       const insert_ast = {
         whatami$: 'insert_t',
         into$: { whatami$: 'table_t', name$: 'products' },
@@ -56,11 +56,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifyInsert(insert_ast)
-        expect(sql).toEqual("insert into products (\"est_price\", \"price\", \"version\") values (3.95, '3.95', 0)")
+        expect(sql).toEqual("insert into products (est_price, price, version) values (3.95, '3.95', 0)")
       })
     })
 
-    describe("insert into products (\"id\") values ('aaaa') on conflict (\"id\") do update set \"price\" = '1.95'", () => {
+    describe("insert into products (id) values ('aaaa') on conflict (id) do update set price = '1.95'", () => {
       const insert_ast = {
         whatami$: 'insert_t',
         into$: { whatami$: 'table_t', name$: 'products' },
@@ -92,14 +92,14 @@ describe('SqlStringifer', () => {
         const sql = SqlStringifer.stringifyInsert(insert_ast)
 
         expect(sql).toEqual(
-          "insert into products (\"id\") values ('aaaa') on conflict (\"id\") do update set \"price\" = '1.95'"
+          "insert into products (id) values ('aaaa') on conflict (id) do update set price = '1.95'"
         )
       })
     })
 
     // TODO:
     //
-    xdescribe("insert into products (\"id\") values ('aaaa') on conflict (\"id\") do update set \"version\" = version + 1", () => {
+    xdescribe("insert into products (id) values ('aaaa') on conflict (id) do update set version = version + 1", () => {
     })
   })
 
@@ -130,7 +130,7 @@ describe('SqlStringifer', () => {
       })
     })
 
-    describe("select \"id\", \"email\" from users", () => {
+    describe("select id, email from users", () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -142,11 +142,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual('select "id", "email" from users')
+        expect(sql).toEqual('select id, email from users')
       })
     })
 
-    describe("select \"u\".\"id\", \"u\".\"email\" from users as u", () => {
+    describe("select u.id, u.email from users as u", () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -158,11 +158,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual('select "id", "email" from users as u')
+        expect(sql).toEqual('select id, email from users as u')
       })
     })
 
-    describe("select \"id\", 1 as \"one\" from users as u", () => {
+    describe("select id, 1 as one from users as u", () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -174,11 +174,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual("select \"id\", 1 as \"one\" from users as u")
+        expect(sql).toEqual("select id, 1 as one from users as u")
       })
     })
 
-    describe("select \"id\" from users limit 5", () => {
+    describe("select id from users limit 5", () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -193,11 +193,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual("select \"id\" from users limit 5")
+        expect(sql).toEqual("select id from users limit 5")
       })
     })
 
-    describe("select \"id\" from users limit 5 offset 3", () => {
+    describe("select id from users limit 5 offset 3", () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -213,11 +213,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual("select \"id\" from users limit 5 offset 3")
+        expect(sql).toEqual("select id from users limit 5 offset 3")
       })
     })
 
-    describe('select \"id\" from users order by "email" asc, "age" desc', () => {
+    describe('select id from users order by "email" asc, "age" desc', () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -243,11 +243,11 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual("select \"id\" from users order by \"email\" asc, \"age\" desc")
+        expect(sql).toEqual("select id from users order by email asc, age desc")
       })
     })
 
-    describe('select "id" from users order by "email" asc, "age" desc limit 3 offset 5', () => {
+    describe('select id from users order by email asc, age desc limit 3 offset 5', () => {
       const select_ast = {
         whatami$: 'select_t',
         columns$: [
@@ -278,13 +278,8 @@ describe('SqlStringifer', () => {
 
       it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
-        expect(sql).toEqual("select \"id\" from users order by \"email\" asc, \"age\" desc limit 5 offset 3")
+        expect(sql).toEqual("select id from users order by email asc, age desc limit 5 offset 3")
       })
-    })
-
-    // TODO
-    //
-    xdescribe('select \"id\" from users order by "email" asc, "age" desc', () => {
     })
   })
 })
