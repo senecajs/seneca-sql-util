@@ -185,12 +185,35 @@ describe('SqlStringifer', () => {
           { whatami$: 'column_t', name$: 'id' }
         ],
         from$: { whatami$: 'table_t', name$: 'users' },
-        limit$: { whatami$: 'value_t', value$: 5 }
+        limit$: {
+          whatami$: 'limit_t',
+          limit$: { whatami$: 'value_t', value$: 5 },
+        }
       }
 
-      fit('builds correct SQL', () => { // fcs
+      it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifySelect(select_ast)
         expect(sql).toEqual("select \"id\" from users limit 5")
+      })
+    })
+
+    describe("select \"id\" from users limit 5 offset 3", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users' },
+        limit$: {
+          whatami$: 'limit_t',
+          limit$: { whatami$: 'value_t', value$: 5 },
+          offset$: { whatami$: 'value_t', value$: 3 }
+        }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual("select \"id\" from users limit 5 offset 3")
       })
     })
   })
