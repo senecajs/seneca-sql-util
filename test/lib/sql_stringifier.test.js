@@ -216,6 +216,76 @@ describe('SqlStringifer', () => {
         expect(sql).toEqual("select \"id\" from users limit 5 offset 3")
       })
     })
+
+    describe('select \"id\" from users order by "email" asc, "age" desc', () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users' },
+        order_by$: {
+          whatami$: 'order_by_t',
+          terms$: [
+            {
+              whatami$: 'ordering_term_t',
+              column$: { whatami$: 'column_t', name$: 'email' },
+              order$: 'asc'
+            },
+            {
+              whatami$: 'ordering_term_t',
+              column$: { whatami$: 'column_t', name$: 'age' },
+              order$: 'desc'
+            }
+          ]
+        }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual("select \"id\" from users order by \"email\" asc, \"age\" desc")
+      })
+    })
+
+    describe('select "id" from users order by "email" asc, "age" desc limit 3 offset 5', () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users' },
+        order_by$: {
+          whatami$: 'order_by_t',
+          terms$: [
+            {
+              whatami$: 'ordering_term_t',
+              column$: { whatami$: 'column_t', name$: 'email' },
+              order$: 'asc'
+            },
+            {
+              whatami$: 'ordering_term_t',
+              column$: { whatami$: 'column_t', name$: 'age' },
+              order$: 'desc'
+            }
+          ]
+        },
+        limit$: {
+          whatami$: 'limit_t',
+          limit$: { whatami$: 'value_t', value$: 5 },
+          offset$: { whatami$: 'value_t', value$: 3 }
+        }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual("select \"id\" from users order by \"email\" asc, \"age\" desc limit 5 offset 3")
+      })
+    })
+
+    // TODO
+    //
+    xdescribe('select \"id\" from users order by "email" asc, "age" desc', () => {
+    })
   })
 })
 
