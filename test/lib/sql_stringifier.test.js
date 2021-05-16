@@ -177,6 +177,22 @@ describe('SqlStringifer', () => {
         expect(sql).toEqual("select \"id\", 1 as \"one\" from users as u")
       })
     })
+
+    describe("select \"id\" from users limit 5", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users' },
+        limit$: { whatami$: 'value_t', value$: 5 }
+      }
+
+      fit('builds correct SQL', () => { // fcs
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual("select \"id\" from users limit 5")
+      })
+    })
   })
 })
 
