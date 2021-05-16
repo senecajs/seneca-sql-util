@@ -88,14 +88,95 @@ describe('SqlStringifer', () => {
         }
       }
 
-      fit('builds correct SQL', () => { // fcs
+      it('builds correct SQL', () => {
         const sql = SqlStringifer.stringifyInsert(insert_ast)
-        console.log(sql) // dbg
-        //expect(sql).toEqual("insert into products (\"id\") values ('aaaa')")
+
+        expect(sql).toEqual(
+          "insert into products (\"id\") values ('aaaa') on conflict (\"id\") do update set \"price\" = '1.95'"
+        )
       })
     })
 
+    // TODO:
+    //
     xdescribe("insert into products (\"id\") values ('aaaa') on conflict (\"id\") do update set \"version\" = version + 1", () => {
     })
   })
+
+  describe('stringifySelect', () => {
+    describe("select * from users", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: '*',
+        from$: { whatami$: 'table_t', name$: 'users' }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual('select * from users')
+      })
+    })
+
+    describe("select * from users as u", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: '*',
+        from$: { whatami$: 'table_t', name$: 'users', alias$: 'u' }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual('select * from users as u')
+      })
+    })
+
+    describe("select \"id\", \"email\" from users", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' },
+          { whatami$: 'column_t', name$: 'email' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users' }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual('select "id", "email" from users')
+      })
+    })
+
+    describe("select \"u\".\"id\", \"u\".\"email\" from users as u", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' },
+          { whatami$: 'column_t', name$: 'email' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users', alias$: 'u' }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual('select "id", "email" from users as u')
+      })
+    })
+
+    describe("select \"id\", 1 as \"one\" from users as u", () => {
+      const select_ast = {
+        whatami$: 'select_t',
+        columns$: [
+          { whatami$: 'column_t', name$: 'id' },
+          { whatami$: 'value_t', value$: 1, alias$: 'one' }
+        ],
+        from$: { whatami$: 'table_t', name$: 'users', alias$: 'u' }
+      }
+
+      it('builds correct SQL', () => {
+        const sql = SqlStringifer.stringifySelect(select_ast)
+        expect(sql).toEqual("select \"id\", 1 as \"one\" from users as u")
+      })
+    })
+  })
 })
+
