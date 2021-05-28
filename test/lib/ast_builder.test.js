@@ -2,62 +2,79 @@ const Assert = require('assert-plus')
 const SqlStringifer = require('../../lib/sql_stringifier') // dbg
 
 class SelectQueryBuilder {
-  constructor(sel_node) {
-    this.root$ = sel_node
+  constructor(args) {
+    this.sel_node$ = args.sel_node$
+    this.where_builder$ = args.where_builder$ || null
   }
 
   static select(...column_names) {
     const col_nodes = column_names.map(name => new ColumnNode({ name$: name }))
     const sel_node = new SelectNode({ columns$: col_nodes })
 
-    return new SelectQueryBuilder(sel_node)
+    return new SelectQueryBuilder({
+      sel_node$: sel_node,
+      where_builder$: this.where_builder$
+    })
   }
 
   from(table_name) {
     const table_node = new TableNode({ name$: table_name })
-    const sel_node = this.root$.from(table_node)
+    const sel_node = this.sel_node$.from(table_node)
 
-    return new SelectQueryBuilder(sel_node)
+    return new SelectQueryBuilder({
+      sel_node$: sel_node,
+      where_builder$: this.where_builder$
+    })
   }
 
   where(...args) {
-    const [column_name, op, value] = (() => {
-      if (args.length === 3) {
-        return args
+    const where_builder = (() => {
+      if (null == this.where_builder$) {
+        return WhereQueryBuilder.where(...args)
       }
 
-      if (args.length === 2) {
-        const [column_name, value] = args
-        return [column_name, '=', value]
-      }
-
-      Assert.fail(`Did not expect ${args.length} args`)
+      return this.where_builder$.where(...args)
     })()
 
-    const bin_expr_node = new BinaryExprNode({
-      lexpr$: new ColumnNode({ name$: column_name }),
-      rexpr$: new ValueNode({ value$: value }),
-      op_kind$: op
+    return new SelectQueryBuilder({
+      sel_node$: this.sel_node$,
+      where_builder$: where_builder
     })
+  }
 
-    const sel_node = this.root$.andWhere(bin_expr_node)
-
-    return new SelectQueryBuilder(sel_node)
+  orWhere(...args) {
+    return new SelectQueryBuilder({
+      sel_node$: this.sel_node$,
+      where_builder$: this.where_builder$.orWhere(...args)
+    })
   }
 
   limit(n) {
-    const sel_node = this.root$.limit(n)
-    return new SelectQueryBuilder(sel_node)
+    const sel_node = this.sel_node$.limit(n)
+
+    return new SelectQueryBuilder({
+      sel_node$: sel_node,
+      where_builder$: this.where_builder$
+    })
   }
 
   offset(n) {
-    const sel_node = this.root$.offset(n)
-    return new SelectQueryBuilder(sel_node)
+    const sel_node = this.sel_node$.offset(n)
+
+    return new SelectQueryBuilder({
+      sel_node$: sel_node,
+      where_builder$: this.where_builder$
+    })
   }
 
-  toSql() {
-    const ast = this.root$.build()
-    return SqlStringifer.stringifySelect(ast)
+  build() {
+    let builder = this.sel_node$
+
+    if (null != this.where_builder$) {
+      builder = builder.where(this.where_builder$)
+    }
+
+    return builder.build()
   }
 }
 
@@ -348,28 +365,8 @@ class WhereQueryBuilder {
 
 describe('AstBuilder', () => {
   describe('select', () => {
+    /*
     fit('', () => { // fcs
-      /*
-      const ast = new WhereNode(
-        new WhereNode(new BinaryExprNode({
-          lexpr$: new ColumnNode({ name$: 'email' }),
-          rexpr$: new ValueNode({ value$: 'richard@voxgig.com' }),
-          op_kind$: '='
-        }))
-          .andWhere(
-            new WhereNode(new UnaryExprNode({
-              expr$: new ColumnNode({ name$: 'updated_at' }),
-              op_kind$: 'null'
-            }))
-          )
-      )
-        .orWhere(new UnaryExprNode({
-          expr$: new ColumnNode({ name$: 'last_name' }),
-          op_kind$: 'null'
-        }))
-        .build()
-      */
-
       const _ = WhereQueryBuilder
 
       const ast = _
@@ -385,21 +382,21 @@ describe('AstBuilder', () => {
 
       console.log(SqlStringifer.stringifyExpr(ast))
     })
+    */
 
-    /*
     fit('', () => { // fcs
       const q = SelectQueryBuilder
         .select('id', 'name')
         .from('users')
         .where('email', 'richard@voxgig.com')
         .where('name', 'Richard')
-        .where('age', '<', 30)
+        .orWhere('age', '<', 30)
         .limit(10)
         .offset(3)
+        .build()
 
-      console.log(q.toSql())
+      console.log(SqlStringifer.stringifySelect(q))
     })
-    */
 
     /*
     fit('', () => { // fcs
