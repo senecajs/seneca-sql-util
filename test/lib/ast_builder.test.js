@@ -23,7 +23,14 @@ class SelectQueryBuilder {
   where(column_name, op, value) {
   }
 
-  limit() {
+  limit(n) {
+    const sel_node = this.root$.limit(n)
+    return new SelectQueryBuilder(sel_node)
+  }
+
+  offset(n) {
+    const sel_node = this.root$.offset(n)
+    return new SelectQueryBuilder(sel_node)
   }
 
   toSql() {
@@ -59,6 +66,41 @@ class SelectNode {
   }
 
   limitOffset(node) {
+    return new SelectNode({
+      columns$: this.columns$,
+      from$: this.from$,
+      where$: this.where$,
+      limit_offset$: node
+    })
+  }
+
+  limit(n) {
+    return new SelectNode({
+      columns$: this.columns$,
+      from$: this.from$,
+      where$: this.where$,
+      limit_offset$: new LimitOffsetNode({
+        limit$: new ValueNode({ value$: n })
+      })
+    })
+  }
+
+  offset(n) {
+    const node = (() => {
+      const offset_node = new ValueNode({ value$: n })
+
+      if (null == this.limit_offset$) {
+        const max_limit = 2 ** 30 + (2 ** 30 - 1)
+
+        return new LimitOffsetNode({
+          limit$: new ValueNode({ value$: max_limit }),
+          offset$: offset_node
+        })
+      }
+
+      return this.limit_offset$.offset(offset_node)
+    })()
+
     return new SelectNode({
       columns$: this.columns$,
       from$: this.from$,
@@ -184,6 +226,8 @@ describe('AstBuilder', () => {
       const q = SelectQueryBuilder
         .select('id', 'name')
         .from('users')
+        .limit(10)
+        .offset(3)
 
       console.log(q.toSql())
     })
