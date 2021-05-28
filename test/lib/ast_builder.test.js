@@ -258,8 +258,135 @@ class UnaryExprNode {
   }
 }
 
+class WhereQueryBuilder {
+  constructor(node) {
+    this.root$ = node
+  }
+
+  static _exprOfUserFriendlyArgs(...args) {
+    if (args.length === 1 && args[0] instanceof WhereQueryBuilder) {
+      return args[0].root$
+    }
+
+    const [column_name, op_kind, value] = (() => {
+      if (args.length === 3) {
+        return args
+      }
+
+      if (args.length === 2) {
+        const [column_name, value] = args
+        return [column_name, '=', value]
+      }
+
+      Assert.fail(`Did not expect ${args.length} args`)
+    })()
+
+    return new BinaryExprNode({
+      lexpr$: new ColumnNode({ name$: column_name }),
+      rexpr$: new ValueNode({ value$: value }),
+      op_kind$: op_kind
+    })
+  }
+
+  _and(node) {
+    const where_node = new BinaryExprNode({
+      lexpr$: this.root$,
+      rexpr$: node,
+      op_kind$: 'and'
+    })
+
+    return new WhereQueryBuilder(where_node)
+  }
+
+  _or(node) {
+    const where_node = new BinaryExprNode({
+      lexpr$: this.root$,
+      rexpr$: node,
+      op_kind$: 'or'
+    })
+
+    return new WhereQueryBuilder(where_node)
+  }
+
+  static where(...args) {
+    const expr_node = WhereQueryBuilder._exprOfUserFriendlyArgs(...args)
+    return new WhereQueryBuilder(expr_node)
+  }
+
+  where(...args) {
+    const expr_node = WhereQueryBuilder._exprOfUserFriendlyArgs(...args)
+    return this._and(expr_node)
+  }
+
+  whereNull(column_name) {
+    const expr_node = new UnaryExprNode({
+      expr$: new ColumnNode({ name$: column_name }),
+      op_kind$: 'null'
+    })
+
+    return this._and(expr_node)
+  }
+
+  orWhereNull(column_name) {
+    const expr_node = new UnaryExprNode({
+      expr$: new ColumnNode({ name$: column_name }),
+      op_kind$: 'null'
+    })
+
+    return this._or(expr_node)
+  }
+
+  orWhere(...args) {
+    const expr_node = WhereQueryBuilder._exprOfUserFriendlyArgs(...args)
+    return this._or(expr_node)
+  }
+
+  build() {
+    return this.root$.build()
+  }
+}
+
 describe('AstBuilder', () => {
   describe('select', () => {
+    fit('', () => { // fcs
+      /*
+      const ast = new WhereNode(
+        new WhereNode(new BinaryExprNode({
+          lexpr$: new ColumnNode({ name$: 'email' }),
+          rexpr$: new ValueNode({ value$: 'richard@voxgig.com' }),
+          op_kind$: '='
+        }))
+          .andWhere(
+            new WhereNode(new UnaryExprNode({
+              expr$: new ColumnNode({ name$: 'updated_at' }),
+              op_kind$: 'null'
+            }))
+          )
+      )
+        .orWhere(new UnaryExprNode({
+          expr$: new ColumnNode({ name$: 'last_name' }),
+          op_kind$: 'null'
+        }))
+        .build()
+      */
+
+      const _ = WhereQueryBuilder
+
+      const ast = _
+        .where('email', 'frank@voxgig.com')
+        .where(
+          _
+            .where('age', 27)
+            .orWhereNull('updated_at')
+        )
+        .build()
+
+      console.dir(ast, { depth: 8 }) // dbg
+
+      console.log(SqlStringifer.stringifyExpr(ast))
+    })
+
+    /*
     fit('', () => { // fcs
       const q = SelectQueryBuilder
         .select('id', 'name')
@@ -272,6 +399,7 @@ describe('AstBuilder', () => {
 
       console.log(q.toSql())
     })
+    */
 
     /*
     fit('', () => { // fcs
