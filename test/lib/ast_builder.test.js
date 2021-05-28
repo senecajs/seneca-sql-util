@@ -20,7 +20,29 @@ class SelectQueryBuilder {
     return new SelectQueryBuilder(sel_node)
   }
 
-  where(column_name, op, value) {
+  where(...args) {
+    const [column_name, op, value] = (() => {
+      if (args.length === 3) {
+        return args
+      }
+
+      if (args.length === 2) {
+        const [column_name, value] = args
+        return [column_name, '=', value]
+      }
+
+      Assert.fail(`Did not expect ${args.length} args`)
+    })()
+
+    const bin_expr_node = new BinaryExprNode({
+      lexpr$: new ColumnNode({ name$: column_name }),
+      rexpr$: new ValueNode({ value$: value }),
+      op_kind$: op
+    })
+
+    const sel_node = this.root$.andWhere(bin_expr_node)
+
+    return new SelectQueryBuilder(sel_node)
   }
 
   limit(n) {
@@ -63,6 +85,22 @@ class SelectNode {
       where$: node,
       limit_offset$: this.limit_offset$
     })
+  }
+
+  andWhere(node) {
+    const where_node = (() => {
+      if (null == this.where$) {
+        return node
+      }
+
+      return new BinaryExprNode({
+        lexpr$: this.where$,
+        rexpr$: node,
+        op_kind$: 'and'
+      })
+    })()
+
+    return this.where(where_node)
   }
 
   limitOffset(node) {
@@ -226,6 +264,9 @@ describe('AstBuilder', () => {
       const q = SelectQueryBuilder
         .select('id', 'name')
         .from('users')
+        .where('email', 'richard@voxgig.com')
+        .where('name', 'Richard')
+        .where('age', '<', 30)
         .limit(10)
         .offset(3)
 
