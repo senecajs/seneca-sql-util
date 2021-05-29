@@ -1,17 +1,17 @@
 const Assert = require('assert-plus')
-const SqlStringifer = require('../../lib/sql_stringifier') // dbg
+const QueryBuilder = require('../../lib/query_builder') // dbg
 
-class QueryBuilder {
+class AstBuilder {
   static select(...args) {
-    return SelectQueryBuilder.select(...args)
+    return SelectAstBuilder.select(...args)
   }
 
   static where(...args) {
-    return WhereQueryBuilder.where(...args)
+    return WhereAstBuilder.where(...args)
   }
 }
 
-class SelectQueryBuilder {
+class SelectAstBuilder {
   constructor(args) {
     this.sel_node$ = args.sel_node$
     this.where_builder$ = args.where_builder$ || null
@@ -21,7 +21,7 @@ class SelectQueryBuilder {
     const col_nodes = column_names.map(name => new ColumnNode({ name$: name }))
     const sel_node = new SelectNode({ columns$: col_nodes })
 
-    return new SelectQueryBuilder({
+    return new SelectAstBuilder({
       sel_node$: sel_node,
       where_builder$: this.where_builder$
     })
@@ -31,7 +31,7 @@ class SelectQueryBuilder {
     const table_node = new TableNode({ name$: table_name })
     const sel_node = this.sel_node$.from(table_node)
 
-    return new SelectQueryBuilder({
+    return new SelectAstBuilder({
       sel_node$: sel_node,
       where_builder$: this.where_builder$
     })
@@ -40,20 +40,20 @@ class SelectQueryBuilder {
   where(...args) {
     const where_builder = (() => {
       if (null == this.where_builder$) {
-        return WhereQueryBuilder.where(...args)
+        return WhereAstBuilder.where(...args)
       }
 
       return this.where_builder$.where(...args)
     })()
 
-    return new SelectQueryBuilder({
+    return new SelectAstBuilder({
       sel_node$: this.sel_node$,
       where_builder$: where_builder
     })
   }
 
   orWhere(...args) {
-    return new SelectQueryBuilder({
+    return new SelectAstBuilder({
       sel_node$: this.sel_node$,
       where_builder$: this.where_builder$.orWhere(...args)
     })
@@ -62,7 +62,7 @@ class SelectQueryBuilder {
   limit(n) {
     const sel_node = this.sel_node$.limit(n)
 
-    return new SelectQueryBuilder({
+    return new SelectAstBuilder({
       sel_node$: sel_node,
       where_builder$: this.where_builder$
     })
@@ -71,7 +71,7 @@ class SelectQueryBuilder {
   offset(n) {
     const sel_node = this.sel_node$.offset(n)
 
-    return new SelectQueryBuilder({
+    return new SelectAstBuilder({
       sel_node$: sel_node,
       where_builder$: this.where_builder$
     })
@@ -285,13 +285,13 @@ class UnaryExprNode {
   }
 }
 
-class WhereQueryBuilder {
+class WhereAstBuilder {
   constructor(node) {
     this.root$ = node
   }
 
   static _exprOfUserFriendlyArgs(...args) {
-    if (args.length === 1 && args[0] instanceof WhereQueryBuilder) {
+    if (args.length === 1 && args[0] instanceof WhereAstBuilder) {
       return args[0].root$
     }
 
@@ -322,7 +322,7 @@ class WhereQueryBuilder {
       op_kind$: 'and'
     })
 
-    return new WhereQueryBuilder(where_node)
+    return new WhereAstBuilder(where_node)
   }
 
   _or(node) {
@@ -332,16 +332,16 @@ class WhereQueryBuilder {
       op_kind$: 'or'
     })
 
-    return new WhereQueryBuilder(where_node)
+    return new WhereAstBuilder(where_node)
   }
 
   static where(...args) {
-    const expr_node = WhereQueryBuilder._exprOfUserFriendlyArgs(...args)
-    return new WhereQueryBuilder(expr_node)
+    const expr_node = WhereAstBuilder._exprOfUserFriendlyArgs(...args)
+    return new WhereAstBuilder(expr_node)
   }
 
   where(...args) {
-    const expr_node = WhereQueryBuilder._exprOfUserFriendlyArgs(...args)
+    const expr_node = WhereAstBuilder._exprOfUserFriendlyArgs(...args)
     return this._and(expr_node)
   }
 
@@ -364,7 +364,7 @@ class WhereQueryBuilder {
   }
 
   orWhere(...args) {
-    const expr_node = WhereQueryBuilder._exprOfUserFriendlyArgs(...args)
+    const expr_node = WhereAstBuilder._exprOfUserFriendlyArgs(...args)
     return this._or(expr_node)
   }
 
@@ -377,7 +377,7 @@ describe('AstBuilder', () => {
   describe('select', () => {
     /*
     fit('', () => { // fcs
-      const _ = WhereQueryBuilder
+      const _ = WhereAstBuilder
 
       const ast = _
         .where('email', 'frank@voxgig.com')
@@ -395,7 +395,7 @@ describe('AstBuilder', () => {
     */
 
     fit('', () => { // fcs
-      const _ = QueryBuilder
+      const _ = AstBuilder
 
       const q = _
         .select('id', 'name')
@@ -410,7 +410,7 @@ describe('AstBuilder', () => {
         .offset(3)
         .build()
 
-      console.log(SqlStringifer.stringifySelect(q))
+      console.log(QueryBuilder.queryOfSelect(q))
     })
 
     /*
