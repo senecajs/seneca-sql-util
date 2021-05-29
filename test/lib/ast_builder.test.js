@@ -27,9 +27,20 @@ class SelectAstBuilder {
     })
   }
 
-  from(table_name) {
-    const table_node = new TableNode({ name$: table_name })
-    const sel_node = this.sel_node$.from(table_node)
+  from(what) {
+    const from_node = (() => {
+      if (typeof what === 'string') {
+        return new TableNode({ name$: what })
+      }
+
+      if (what instanceof SelectAstBuilder) {
+        return what
+      }
+
+      throw new Error('Unexpected "from"')
+    })()
+
+    const sel_node = this.sel_node$.from(from_node)
 
     return new SelectAstBuilder({
       sel_node$: sel_node,
@@ -406,11 +417,14 @@ describe('AstBuilder', () => {
       const _ = AstBuilder
 
       const q = _
-        .select('id', 'name')
-        .from('users')
+        .select('*')
+        .from(
+          _.select('*')
+            .from('users')
+            .where('points', '>', 0)
+        )
 
         // TODO:
-        // - Implement whereExists
         // - Implement subqueries
         // - Implement inner join
         // - Re-consider how keywords (e.g. column names, etc.) are going to be sanitized,
@@ -419,7 +433,6 @@ describe('AstBuilder', () => {
         .whereExists(
           _.select('id').from('users')
             .where('age', '>', 17)
-            .where('points', '>', 0)
         )
         .where('email', 'richard@voxgig.com')
         .limit(10)
