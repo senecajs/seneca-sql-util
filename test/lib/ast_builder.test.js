@@ -52,6 +52,21 @@ class SelectAstBuilder {
     })
   }
 
+  whereExists(...args) {
+    const where_builder = (() => {
+      if (null == this.where_builder$) {
+        return WhereAstBuilder.whereExists(...args)
+      }
+
+      return this.where_builder$.whereExists(...args)
+    })()
+
+    return new SelectAstBuilder({
+      sel_node$: this.sel_node$,
+      where_builder$: where_builder
+    })
+  }
+
   orWhere(...args) {
     return new SelectAstBuilder({
       sel_node$: this.sel_node$,
@@ -335,6 +350,18 @@ class WhereAstBuilder {
     return new WhereAstBuilder(where_node)
   }
 
+  whereExists(builder) {
+    Assert(builder instanceof SelectAstBuilder, 'builder')
+
+    return this._and(builder)
+  }
+
+  static whereExists(builder) {
+    Assert(builder instanceof SelectAstBuilder, 'builder')
+
+    return new WhereAstBuilder(builder)
+  }
+
   static where(...args) {
     const expr_node = WhereAstBuilder._exprOfUserFriendlyArgs(...args)
     return new WhereAstBuilder(expr_node)
@@ -375,31 +402,50 @@ class WhereAstBuilder {
 
 describe('AstBuilder', () => {
   describe('select', () => {
-    /*
-    fit('', () => { // fcs
-      const _ = WhereAstBuilder
-
-      const ast = _
-        .where('email', 'frank@voxgig.com')
-        .where(
-          _
-            .where('age', 27)
-            .orWhereNull('updated_at')
-        )
-        .build()
-
-      console.dir(ast, { depth: 8 }) // dbg
-
-      console.log(SqlStringifer.stringifyExpr(ast))
-    })
-    */
-
     fit('', () => { // fcs
       const _ = AstBuilder
 
       const q = _
         .select('id', 'name')
         .from('users')
+
+        // TODO:
+        // - Implement whereExists
+        // - Implement subqueries
+        // - Implement inner join
+        // - Re-consider how keywords (e.g. column names, etc.) are going to be sanitized,
+        // e.g. _.select('id; delete from products where true')
+        //
+        .whereExists(
+          _.select('id').from('users')
+            .where('age', '>', 17)
+            .where('points', '>', 0)
+        )
+        .where('email', 'richard@voxgig.com')
+        .limit(10)
+        .offset(3)
+        .build()
+
+      console.dir(q, { depth: 8 }) // dbg
+
+      console.log(QueryBuilder.queryOfSelect(q))
+    })
+
+    /*
+    fit('', () => { // fcs
+      const _ = AstBuilder
+
+      const q = _
+        .select('id', 'name')
+        .from('users')
+
+        // TODO:
+        // - Implement whereExists
+        // - Implement subqueries
+        // - Implement inner join
+        // - Re-consider how keywords (e.g. column names, etc.) are going to be sanitized,
+        // e.g. _.select('id; delete from products where true')
+        //
         .where('email', 'richard@voxgig.com')
         .where(
           _
@@ -412,6 +458,7 @@ describe('AstBuilder', () => {
 
       console.log(QueryBuilder.queryOfSelect(q))
     })
+    */
 
     /*
     fit('', () => { // fcs
