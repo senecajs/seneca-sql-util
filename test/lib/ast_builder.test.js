@@ -1,6 +1,16 @@
 const Assert = require('assert-plus')
 const SqlStringifer = require('../../lib/sql_stringifier') // dbg
 
+class QueryBuilder {
+  static select(...args) {
+    return SelectQueryBuilder.select(...args)
+  }
+
+  static where(...args) {
+    return WhereQueryBuilder.where(...args)
+  }
+}
+
 class SelectQueryBuilder {
   constructor(args) {
     this.sel_node$ = args.sel_node$
@@ -385,12 +395,17 @@ describe('AstBuilder', () => {
     */
 
     fit('', () => { // fcs
-      const q = SelectQueryBuilder
+      const _ = QueryBuilder
+
+      const q = _
         .select('id', 'name')
         .from('users')
         .where('email', 'richard@voxgig.com')
-        .where('name', 'Richard')
-        .orWhere('age', '<', 30)
+        .where(
+          _
+            .where('name', 'Richard')
+            .orWhere('age', '<', 30)
+        )
         .limit(10)
         .offset(3)
         .build()
