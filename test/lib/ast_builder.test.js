@@ -36,6 +36,13 @@ class SelectNode {
 
     return { whatami$: 'select_t', columns$, from$ }
   }
+
+  static setFrom(sel_node, from_node) {
+    return SelectNode.make({
+      ...sel_node,
+      from$: from_node
+    })
+  }
 }
 
 class TableNode {
@@ -48,16 +55,84 @@ class TableNode {
   }
 }
 
-describe('AstBuilder', () => {
+class ColumnNode {
+  static make(data) {
+    Assert.object(data, 'data')
+
+    const name$ = fetchProp(data, 'name$')
+
+    return { whatami$: 'column_t', name$ }
+  }
+}
+
+class AstBuilder {
+  constructor(args = {}) {
+    this._root = args.root || null
+  }
+
+  toAst() {
+    return this._root
+  }
+
+  select(what) {
+    if (what === '*') {
+      const root = SelectNode.make({ columns$: '*' })
+      return new AstBuilder({ root })
+    }
+
+    if (Array.isArray(what)) {
+      const columns = what.map(column_name => ColumnNode.make({ name$: column_name }))
+      const root = SelectNode.make({ columns$: columns })
+
+      return new AstBuilder({ root })
+    }
+
+    throw new Error('Unexpected type of the argument')
+  }
+
+  from(what) {
+    if (typeof what === 'string') {
+      const table_node = TableNode.make({ name$: what })
+      const root = SelectNode.setFrom(this._root, table_node)
+
+      return new AstBuilder({ root })
+    }
+
+    if (what && what.whatami$ === 'select_t') {
+      const root = SelectNode.setFrom(this._root, what)
+
+      return new AstBuilder({ root })
+    }
+
+    throw new Error('Unexpected type of the argument')
+  }
+}
+
+describe('query-building', () => {
   describe('select', () => {
     fit('', () => { // fcs
+      /*
       const ast = SelectNode.make({
         columns$: '*',
         from$: SelectNode.make({
-          columns$: '*',
+          columns$: [
+            ColumnNode.make({ name$: 'id' }),
+            ColumnNode.make({ name$: 'first_name' })
+          ],
           from$: TableNode.make({ name$: 'users' })
         })
       })
+      */
+
+      const ast = new AstBuilder()
+        .select('*')
+        .from(
+          new AstBuilder()
+            .select('*')
+            .from('users')
+            .toAst()
+        )
+        .toAst()
 
       console.dir(ast, { depth: 8 }) // dbg
 
