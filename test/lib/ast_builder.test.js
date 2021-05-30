@@ -74,20 +74,14 @@ class AstBuilder {
     return this._root
   }
 
-  select(what) {
-    if (what === '*') {
-      const root = SelectNode.make({ columns$: '*' })
-      return new AstBuilder({ root })
-    }
+  select(...column_names) {
+    Assert(column_names.length > 0, 'column_names cannot be empty')
+    Assert.arrayOfString(column_names, 'column_names')
 
-    if (Array.isArray(what)) {
-      const columns = what.map(column_name => ColumnNode.make({ name$: column_name }))
-      const root = SelectNode.make({ columns$: columns })
+    const columns = column_names.map(column_name => ColumnNode.make({ name$: column_name }))
+    const root = SelectNode.make({ columns$: columns })
 
-      return new AstBuilder({ root })
-    }
-
-    throw new Error('Unexpected type of the argument')
+    return new AstBuilder({ root })
   }
 
   from(what) {
@@ -125,10 +119,10 @@ describe('query-building', () => {
       */
 
       const ast = new AstBuilder()
-        .select('*')
+        .select('id`; delete from products where true')
         .from(
           new AstBuilder()
-            .select('*')
+            .select('id', 'email')
             .from('users')
             .toAst()
         )
