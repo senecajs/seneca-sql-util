@@ -53,7 +53,10 @@ describe('AstBuilder', () => {
     fit('', () => { // fcs
       const ast = SelectNode.make({
         columns$: '*',
-        from$: TableNode.make({ name$: 'users' })
+        from$: SelectNode.make({
+          columns$: '*',
+          from$: TableNode.make({ name$: 'users' })
+        })
       })
 
       console.dir(ast, { depth: 8 }) // dbg
