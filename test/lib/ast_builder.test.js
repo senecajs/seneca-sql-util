@@ -36,13 +36,6 @@ class SelectNode {
 
     return { whatami$: 'select_t', columns$, from$ }
   }
-
-  static setFrom(sel_node, from_node) {
-    return SelectNode.make({
-      ...sel_node,
-      from$: from_node
-    })
-  }
 }
 
 class TableNode {
@@ -118,13 +111,20 @@ class AstBuilder {
   from(what) {
     if (typeof what === 'string') {
       const table_node = TableNode.make({ name$: what })
-      const root = SelectNode.setFrom(this._root, table_node)
+
+      const root = SelectNode.make({
+        ...this._root,
+        from$: table_node
+      })
 
       return new AstBuilder({ root })
     }
 
     if (what && what.whatami$ === 'select_t') {
-      const root = SelectNode.setFrom(this._root, what)
+      const root = SelectNode.make({
+        ...this._root,
+        from$: what
+      })
 
       return new AstBuilder({ root })
     }
