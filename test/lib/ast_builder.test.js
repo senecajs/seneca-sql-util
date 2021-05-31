@@ -65,6 +65,27 @@ class ColumnNode {
   }
 }
 
+class ValueNode {
+  static make(data) {
+    Assert.object(data, 'data')
+
+    const value$ = fetchProp(data, 'value$')
+
+    return { whatami$: 'value_t', value$ }
+  }
+}
+
+class RawSqlNode {
+  static make(data) {
+    Assert.object(data, 'data')
+
+    const raw_sql$ = fetchProp(data, 'raw_sql$')
+    const raw_values$ = data.raw_values$ || null
+
+    return { whatami$: 'raw_sql_t', raw_sql$, raw_values$ }
+  }
+}
+
 class AstBuilder {
   constructor(args = {}) {
     this._root = args.root || null
@@ -74,11 +95,21 @@ class AstBuilder {
     return this._root
   }
 
-  select(...column_names) {
-    Assert(column_names.length > 0, 'column_names cannot be empty')
-    Assert.arrayOfString(column_names, 'column_names')
+  select(...args) {
+    Assert(args.length > 0, 'select args cannot be empty')
 
-    const columns = column_names.map(column_name => ColumnNode.make({ name$: column_name }))
+    const columns = args.map(arg => {
+      if (typeof arg === 'string') {
+        return ColumnNode.make({ name$: arg })
+      }
+
+      if (arg && arg.whatami$ === 'raw_sql_t') {
+        return arg
+      }
+
+      throw new Error('Unexpected type of the column argument')
+    })
+
     const root = SelectNode.make({ columns$: columns })
 
     return new AstBuilder({ root })
@@ -100,6 +131,12 @@ class AstBuilder {
 
     throw new Error('Unexpected type of the argument')
   }
+
+  raw(sql, values) {
+    const root = RawSqlNode.make({ raw_sql$: sql, raw_values$: values })
+
+    return new AstBuilder({ root })
+  }
 }
 
 describe('query-building', () => {
@@ -119,10 +156,15 @@ describe('query-building', () => {
       */
 
       const ast = new AstBuilder()
-        .select('id`; delete from products where true')
+        .select(
+          '*',
+          new AstBuilder()
+            .raw('age >= ? as is_mature', [18])
+            .toAst()
+        )
         .from(
           new AstBuilder()
-            .select('id', 'email')
+            .select('id', 'age')
             .from('users')
             .toAst()
         )
@@ -130,7 +172,7 @@ describe('query-building', () => {
 
       console.dir(ast, { depth: 8 }) // dbg
 
-      console.log(QueryBuilder.queryOfSelect(ast)) // dbg
+      console.dir(QueryBuilder.queryOfSelect(ast), { depth: 8 }) // dbg
     })
 
     /*
