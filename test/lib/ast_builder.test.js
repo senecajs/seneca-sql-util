@@ -33,9 +33,28 @@ class SelectNode {
 
     const columns$ = fetchProp(data, 'columns$')
     const from$ = data.from$ || null
+    const where$ = data.where$ || null
     const subexpr_alias$ = data.subexpr_alias$ || null
 
-    return { whatami$: 'select_t', columns$, from$, subexpr_alias$ }
+    return {
+      whatami$: 'select_t',
+      columns$,
+      from$,
+      where$,
+      subexpr_alias$
+    }
+  }
+}
+
+class BinaryExprNode {
+  static make(data) {
+    Assert.object(data, 'data')
+
+    const lexpr$ = fetchProp(data, 'lexpr$')
+    const rexpr$ = fetchProp(data, 'rexpr$')
+    const op_kind$ = fetchProp(data, 'op_kind$')
+
+    return { whatami$: 'binary_expr_t', lexpr$, rexpr$, op_kind$ }
   }
 }
 
@@ -58,6 +77,22 @@ class ColumnNode {
     const alias$ = data.alias$ || null
 
     return { whatami$: 'column_t', name$, alias$ }
+  }
+
+  static ofComplexColumnName(column_name) {
+    const parts = column_name.split('.')
+
+    if (parts.length === 1) {
+      const [name$] = parts
+      return ColumnNode.make({ name$ })
+    }
+
+    if (parts.length === 2) {
+      const [alias$, name$] = parts
+      return ColumnNode.make({ alias$, name$ })
+    }
+
+    Assert.fail(`The column name has too many parts: ${parts.length}`)
   }
 }
 
@@ -131,10 +166,55 @@ class FromAstBuilder {
   }
 }
 
+class WhereAstBuilder {
+  constructor(args = {}) {
+    this._expr = args.expr || null
+  }
+
+  where(...args) {
+    const [column_name, operator, value] = (() => {
+      if (args.length === 3) {
+        return args
+      }
+
+      if (args.length === 2) {
+        const [column_name, value] = args
+        return [column_name, '=', value]
+      }
+
+      Assert.fail(`Unexpected number of arguments: ${args.length}`)
+    })()
+
+    const where_expr = BinaryExprNode.make({
+      op_kind$: operator,
+      lexpr$: ColumnNode.ofComplexColumnName(column_name),
+      rexpr$: ValueNode.make({ value$: value })
+    })
+
+    if (this._expr) {
+      const expr = BinaryExprNode.make({
+        op_kind$: 'and',
+        lexpr$: this._expr,
+        rexpr$: where_expr
+      })
+
+      return new WhereAstBuilder({ expr })
+    }
+
+    return new WhereAstBuilder({ expr: where_expr })
+  }
+
+  toAst() {
+    Assert.ok(this._expr, 'this._expr')
+    return this._expr
+  }
+}
+
 class SelectAstBuilder {
   constructor(args) {
-    this._from = args.from || null
     this._columns = args.columns || null
+    this._from = args.from || null
+    this._where = args.where || null
     this._subexpr_alias = args.subexpr_alias || null
   }
 
@@ -142,18 +222,28 @@ class SelectAstBuilder {
     return new SelectAstBuilder({
       columns: this._columns,
       from: new FromAstBuilder({ from: what }),
-      subexpr_alias: this._subexpr_alias
+      subexpr_alias: this._subexpr_alias,
+      where: this._where
     })
   }
 
-  where() {
+  where(...args) {
+    const where_builder = this._where || new WhereAstBuilder()
+
+    return new SelectAstBuilder({
+      columns: this._columns,
+      from: this._from,
+      subexpr_alias: this._subexpr_alias,
+      where: where_builder.where(...args)
+    })
   }
 
   as(alias) {
     return new SelectAstBuilder({
       columns: this._columns,
       from: this._from,
-      subexpr_alias: alias
+      subexpr_alias: alias,
+      where: this._where
     })
   }
 
@@ -164,7 +254,7 @@ class SelectAstBuilder {
           return '*'
         }
 
-        return ColumnNode.make({ name$: arg })
+        return ColumnNode.ofComplexColumnName(arg)
       }
 
       if (arg instanceof RawAstBuilder) {
@@ -187,10 +277,23 @@ class SelectAstBuilder {
     })()
 
 
+    const where_node = (() => {
+      if (this._where) {
+        Assert(this._where instanceof WhereAstBuilder,
+          'must be WhereAstBuilder')
+
+        return this._where.toAst()
+      }
+
+      return null
+    })()
+
+
     return SelectNode.make({
       whatami$: 'select_t',
       columns$: columns_nodes,
       from$: from_node,
+      where$: where_node,
       subexpr_alias$: this._subexpr_alias
     })
   }
@@ -212,6 +315,7 @@ describe('query-building', () => {
             .from('users')
             .as('u')
         )
+        .where('u.email', 'richard@voxgig.com')
         .toAst()
 
       console.dir(ast, { depth: 8 }) // dbg
