@@ -82,9 +82,30 @@ class RawSqlNode {
   }
 }
 
+class RawAstBuilder {
+  constructor(args) {
+    this._sql = args.sql || null
+    this._values = args.values || null
+  }
+
+  toAst() {
+    Assert.string(this._sql, 'this._sql')
+    Assert.ok(this._values, 'this._values')
+
+    return RawSqlNode.make({
+      raw_sql$: this._sql,
+      raw_values$: this._values
+    })
+  }
+}
+
 class AstBuilder {
   select(...columns) {
     return new SelectAstBuilder({ columns })
+  }
+
+  raw(sql, values) {
+    return new RawAstBuilder({ sql, values })
   }
 }
 
@@ -112,7 +133,7 @@ class FromAstBuilder {
 
 class SelectAstBuilder {
   constructor(args) {
-    this._from = args.from || new FromAstBuilder()
+    this._from = args.from || null
     this._columns = args.columns || null
     this._subexpr_alias = args.subexpr_alias || null
   }
@@ -125,6 +146,9 @@ class SelectAstBuilder {
     })
   }
 
+  where() {
+  }
+
   as(alias) {
     return new SelectAstBuilder({
       columns: this._columns,
@@ -134,12 +158,6 @@ class SelectAstBuilder {
   }
 
   toAst() {
-    if (this._from) {
-      Assert(this._from instanceof FromAstBuilder,
-        'must be FromAstBuilder')
-    }
-
-
     const columns_nodes = this._columns.map(arg => {
       if (typeof arg === 'string') {
         if (arg === '*') {
@@ -149,13 +167,30 @@ class SelectAstBuilder {
         return ColumnNode.make({ name$: arg })
       }
 
+      if (arg instanceof RawAstBuilder) {
+        return arg.toAst()
+      }
+
       throw new Error('Unexpected type of the column argument')
     })
+
+
+    const from_node = (() => {
+      if (this._from) {
+        Assert(this._from instanceof FromAstBuilder,
+          'must be FromAstBuilder')
+
+        return this._from.toAst()
+      }
+
+      return null
+    })()
+
 
     return SelectNode.make({
       whatami$: 'select_t',
       columns$: columns_nodes,
-      from$: this._from && this._from.toAst(),
+      from$: from_node,
       subexpr_alias$: this._subexpr_alias
     })
   }
@@ -164,15 +199,15 @@ class SelectAstBuilder {
 describe('query-building', () => {
   describe('select', () => {
     fit('', () => { // fcs
-      const ast = new AstBuilder()
+      const _ = new AstBuilder()
+      const ast = _
         .select(
-          'id', 'age' /*,
-          new SelectAstBuilder()
-            .raw('age >= ? as is_mature', [18])
-            .toAst()*/
+          'id',
+          'email',
+          _.raw('age >= ? as is_mature', [18])
         )
         .from(
-          new AstBuilder()
+          _ 
             .select('id', 'age')
             .from('users')
             .as('u')
