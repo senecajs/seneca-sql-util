@@ -157,10 +157,10 @@ describe('query-building', () => {
 
       const ast = new AstBuilder()
         .select(
-          '*',
+          '*'/*,
           new AstBuilder()
             .raw('age >= ? as is_mature', [18])
-            .toAst()
+            .toAst()*/
         )
         .from(
           new AstBuilder()

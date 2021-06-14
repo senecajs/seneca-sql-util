@@ -19,5 +19,8 @@
   "homepage": "https://github.com/senecajs/seneca-sql-util#readme",
   "devDependencies": {
     "jasmine": "3.7.0"
+  },
+  "dependencies": {
+    "assert-plus": "1.0.0"
   }
 }

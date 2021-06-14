@@ -1,0 +1,101 @@
+type raw_sql_t = {
+  whatami$: "raw_sql_t";
+  raw_sql$: string;
+  raw_values$: 'a list option;
+}
+
+type select_t = {
+  whatami$: "select_t";
+  columns$: [ "*" | ([ column_t | raw_sql_t ]) list ];
+  from$: [ table_t | select_t ] option;
+}
+
+type tuple_t = expr_t list
+
+type unary_expr_t = {
+  whatami$: "unary_expr_t";
+  expr$: expr_t;
+  op_kind$: ["not" | "null]
+}
+
+type binary_expr_t = {
+  whatami$: "binary_expr_t";
+  lexpr$: expr_t;
+  rexpr$: expr_t;
+  op_kind$: ["in" | "between" | "+" | "-" | "*" | "/" | ">=" | ">" | "<" | "<=" | "and" | "or"]
+}
+
+type expr_t = [column_t | value_t | unary_expr_t | binary_expr_t | tuple_t | select_t ]
+
+type table_t = {
+  whatami$: "table_t";
+  name$: string;
+  alias$: string option;
+}
+
+type column_t = "*" | {
+  whatami$: "column_t";
+  name$: string;
+  table$: table_t option;
+  alias$: string option;
+}
+
+type value_t = {
+  whatami$: "value_t";
+  value$: 'a;
+  alias$: string option;
+}
+
+type returning_t = {
+  whatami$: "returning_t";
+  what$: ["*" | column_t list];
+}
+
+type upsert_update_t = {
+  whatami$: "upsert_update_t";
+  set$: (column_t * (column_t | value_t)) list;
+  where$: where_t option;
+}
+
+type upsert_t = {
+  whatami$: "upsert_t";
+  on_conflict_with$: column_t list;
+  do_what$: ["nothing" | upsert_update_t];
+}
+
+type insert_values_t = {
+  whatami$: "insert_values_t";
+  values$: value_t list;
+  upsert$: upsert_t option;
+}
+
+type insert_select_t = {
+  whatami$: "insert_select_t";
+  select$: select_t;
+  upsert$: upsert_t option;
+}
+
+type insert_t = {
+  whatami$: "insert_t";
+  or$: ["ignore" | "replace"] option;
+  into$: table_t;
+  column_names$: string list option;
+  what$: [insert_values_t | insert_select_t];
+  returning$: returning_t option
+}
+
+db
+    .insertInto('products', {
+        id: 'aaaa', 
+        label: '"SPQR" by Mary Beard'
+    })
+    .onConflict('id')
+    .update({ price: '9.95' })
+    
+db
+    .insertInto('products as p1')
+    .select('id', 'label').from('dual')
+    .whereNotExists(
+        db('products as p2').whereRaw('p1.id = p2.id')
+    )
+
