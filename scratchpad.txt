@@ -4,10 +4,16 @@ type raw_sql_t = {
   raw_values$: 'a list option;
 }
 
+type from_t = {
+  whatami$: "from_t";
+  what$: [ table_t | select_t ];
+  alias$: string option;
+}
+
 type select_t = {
   whatami$: "select_t";
   columns$: [ "*" | ([ column_t | raw_sql_t ]) list ];
-  from$: [ table_t | select_t ] option;
+  from$: from_t option;
 }
 
 type tuple_t = expr_t list

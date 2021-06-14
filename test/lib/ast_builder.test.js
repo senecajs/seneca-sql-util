@@ -38,6 +38,25 @@ class SelectNode {
   }
 }
 
+class FromNode {
+  static make(data) {
+    Assert.object(data, 'data')
+
+
+    const what$ = fetchProp(data, 'what$')
+    const alias$ = data.alias$ || null
+
+
+    const node = { whatami$: 'from_t', what$ }
+
+    if (alias$) {
+      node.alias$ = alias$
+    }
+
+    return node
+  }
+}
+
 class TableNode {
   static make(data) {
     Assert.object(data, 'data')
@@ -79,20 +98,54 @@ class RawSqlNode {
   }
 }
 
-class AstBuilder {
-  constructor(args = {}) {
-    this._root = args.root || null
+class FromAstBuilder {
+  constructor(args) {
+    this._from = fetchProp(args, 'from')
+
+    Assert(typeof this._from === 'string' ||
+      this._from instanceof SelectAstBuilder,
+      'Unexpected type of the from-argument')
   }
 
   toAst() {
-    return this._root
+    if (typeof this._from === 'string') {
+      return FromNode.make({
+        what$: TableNode.make({ name$: this._from })
+      })
+    }
+
+    if (this._from instanceof SelectAstBuilder) {
+      return this._from.toAst()
+    }
+
+    Assert.fail('Unexpected type of the argument')
   }
+}
 
-  select(...args) {
-    Assert(args.length > 0, 'select args cannot be empty')
+class AstBuilder {
+  select(...columns) {
+    return new SelectAstBuilder({ columns })
+  }
+}
 
-    const columns = args.map(arg => {
+class SelectAstBuilder {
+  constructor(args) {
+    this._from = args.from || null
+
+    if (this._from) {
+      Assert(this._from instanceof FromAstBuilder,
+        'must be FromAstBuilder')
+    }
+
+
+    const columns_arg = fetchProp(args, 'columns', Assert.array)
+
+    const columns = columns_arg.map(arg => {
       if (typeof arg === 'string') {
+        if (arg === '*') {
+          return '*'
+        }
+
         return ColumnNode.make({ name$: arg })
       }
 
@@ -103,71 +156,46 @@ class AstBuilder {
       throw new Error('Unexpected type of the column argument')
     })
 
-    const root = SelectNode.make({ columns$: columns })
-
-    return new AstBuilder({ root })
+    this._columns = columns
   }
 
   from(what) {
-    if (typeof what === 'string') {
-      const table_node = TableNode.make({ name$: what })
-
-      const root = SelectNode.make({
-        ...this._root,
-        from$: table_node
-      })
-
-      return new AstBuilder({ root })
-    }
-
-    if (what && what.whatami$ === 'select_t') {
-      const root = SelectNode.make({
-        ...this._root,
-        from$: what
-      })
-
-      return new AstBuilder({ root })
-    }
-
-    throw new Error('Unexpected type of the argument')
+    return new SelectAstBuilder({
+      columns: this._columns,
+      from: new FromAstBuilder({ from: what })
+    })
   }
 
-  raw(sql, values) {
-    const root = RawSqlNode.make({ raw_sql$: sql, raw_values$: values })
-
-    return new AstBuilder({ root })
+  toAst() {
+    return SelectNode.make({
+      whatami$: 'select_t',
+      columns$: this._columns,
+      from$: this._from && this._from.toAst()
+    })
   }
 }
 
 describe('query-building', () => {
   describe('select', () => {
     fit('', () => { // fcs
-      /*
-      const ast = SelectNode.make({
-        columns$: '*',
-        from$: SelectNode.make({
-          columns$: [
-            ColumnNode.make({ name$: 'id' }),
-            ColumnNode.make({ name$: 'first_name' })
-          ],
-          from$: TableNode.make({ name$: 'users' })
-        })
-      })
-      */
-
       const ast = new AstBuilder()
         .select(
           '*'/*,
-          new AstBuilder()
+          new SelectAstBuilder()
             .raw('age >= ? as is_mature', [18])
             .toAst()*/
         )
         .from(
-          new AstBuilder()
+          'users'
+        )
+      /*
+        .from(
+          new SelectAstBuilder()
             .select('id', 'age')
             .from('users')
             .toAst()
         )
+        */
         .toAst()
 
       console.dir(ast, { depth: 8 }) // dbg
@@ -177,7 +205,7 @@ describe('query-building', () => {
 
     /*
     fit('', () => { // fcs
-      const _ = AstBuilder
+      const _ = SelectAstBuilder
 
       const q = _
         .select('id', 'name')
