@@ -33,27 +33,9 @@ class SelectNode {
 
     const columns$ = fetchProp(data, 'columns$')
     const from$ = data.from$ || null
+    const subexpr_alias$ = data.subexpr_alias$ || null
 
-    return { whatami$: 'select_t', columns$, from$ }
-  }
-}
-
-class FromNode {
-  static make(data) {
-    Assert.object(data, 'data')
-
-
-    const what$ = fetchProp(data, 'what$')
-    const alias$ = data.alias$ || null
-
-
-    const node = { whatami$: 'from_t', what$ }
-
-    if (alias$) {
-      node.alias$ = alias$
-    }
-
-    return node
+    return { whatami$: 'select_t', columns$, from$, subexpr_alias$ }
   }
 }
 
@@ -62,8 +44,9 @@ class TableNode {
     Assert.object(data, 'data')
 
     const name$ = fetchProp(data, 'name$')
+    const alias$ = data.alias$ || null
 
-    return { whatami$: 'table_t', name$ }
+    return { whatami$: 'table_t', name$, alias$ }
   }
 }
 
@@ -72,8 +55,9 @@ class ColumnNode {
     Assert.object(data, 'data')
 
     const name$ = fetchProp(data, 'name$')
+    const alias$ = data.alias$ || null
 
-    return { whatami$: 'column_t', name$ }
+    return { whatami$: 'column_t', name$, alias$ }
   }
 }
 
@@ -98,49 +82,65 @@ class RawSqlNode {
   }
 }
 
-class FromAstBuilder {
-  constructor(args) {
-    this._from = fetchProp(args, 'from')
-
-    Assert(typeof this._from === 'string' ||
-      this._from instanceof SelectAstBuilder,
-      'Unexpected type of the from-argument')
-  }
-
-  toAst() {
-    if (typeof this._from === 'string') {
-      return FromNode.make({
-        what$: TableNode.make({ name$: this._from })
-      })
-    }
-
-    if (this._from instanceof SelectAstBuilder) {
-      return this._from.toAst()
-    }
-
-    Assert.fail('Unexpected type of the argument')
-  }
-}
-
 class AstBuilder {
   select(...columns) {
     return new SelectAstBuilder({ columns })
   }
 }
 
+class FromAstBuilder {
+  constructor(args = {}) {
+    this._from = args.from || null
+  }
+
+  toAst() {
+    Assert(typeof this._from === 'string' ||
+      this._from instanceof SelectAstBuilder,
+      'Unexpected type of the from-argument')
+
+    if (typeof this._from === 'string') {
+      return TableNode.make({ name$: this._from })
+    }
+
+    if (this._from instanceof SelectAstBuilder) {
+      return this._from.toAst()
+    }
+
+    Assert.fail('Expected this._from to have been set')
+  }
+}
+
 class SelectAstBuilder {
   constructor(args) {
-    this._from = args.from || null
+    this._from = args.from || new FromAstBuilder()
+    this._columns = args.columns || null
+    this._subexpr_alias = args.subexpr_alias || null
+  }
 
+  from(what) {
+    return new SelectAstBuilder({
+      columns: this._columns,
+      from: new FromAstBuilder({ from: what }),
+      subexpr_alias: this._subexpr_alias
+    })
+  }
+
+  as(alias) {
+    return new SelectAstBuilder({
+      columns: this._columns,
+      from: this._from,
+      subexpr_alias: alias
+    })
+  }
+
+  toAst() {
     if (this._from) {
       Assert(this._from instanceof FromAstBuilder,
         'must be FromAstBuilder')
     }
 
 
-    const columns_arg = fetchProp(args, 'columns', Assert.array)
-
-    const columns = columns_arg.map(arg => {
+    const columns_nodes = this._columns.map(arg => {
       if (typeof arg === 'string') {
         if (arg === '*') {
           return '*'
@@ -149,28 +149,14 @@ class SelectAstBuilder {
         return ColumnNode.make({ name$: arg })
       }
 
-      if (arg && arg.whatami$ === 'raw_sql_t') {
-        return arg
-      }
-
       throw new Error('Unexpected type of the column argument')
     })
 
-    this._columns = columns
-  }
-
-  from(what) {
-    return new SelectAstBuilder({
-      columns: this._columns,
-      from: new FromAstBuilder({ from: what })
-    })
-  }
-
-  toAst() {
     return SelectNode.make({
       whatami$: 'select_t',
-      columns$: this._columns,
-      from$: this._from && this._from.toAst()
+      columns$: columns_nodes,
+      from$: this._from && this._from.toAst(),
+      subexpr_alias$: this._subexpr_alias
     })
   }
 }
@@ -180,22 +166,17 @@ describe('query-building', () => {
     fit('', () => { // fcs
       const ast = new AstBuilder()
         .select(
-          '*'/*,
+          'id', 'age' /*,
           new SelectAstBuilder()
             .raw('age >= ? as is_mature', [18])
             .toAst()*/
         )
         .from(
-          'users'
-        )
-      /*
-        .from(
-          new SelectAstBuilder()
+          new AstBuilder()
             .select('id', 'age')
             .from('users')
-            .toAst()
+            .as('u')
         )
-        */
         .toAst()
 
       console.dir(ast, { depth: 8 }) // dbg
